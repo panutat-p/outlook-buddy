@@ -42,10 +42,3 @@ sleeps between the roughly six-hour login sessions.
 ./scripts/microsoft-login-buddy.swift inspect  # show detected login pages
 ./scripts/microsoft-login-buddy.swift dump     # redacted Accessibility dump
 ```
-
-Use another credential file with:
-
-```bash
-OUTLOOK_BUDDY_ENV=~/.config/outlook-buddy.env \
-  ./scripts/microsoft-login-buddy.swift
-```
