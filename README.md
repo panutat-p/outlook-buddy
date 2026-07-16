@@ -62,19 +62,3 @@ Run this from a terminal that already has Accessibility permission:
 `inspect` reports only which app and page type were recognized. `dump` prints
 only dedicated Microsoft login surfaces. Both are read-only; email addresses and
 editable values are redacted, and secure-field values are never read.
-
-## Safety
-
-- Automation is limited to Outlook and Teams bundle identifiers.
-- A field is filled only when the same window also contains Microsoft sign-in
-  markers and an expected submit button.
-- Keystrokes are posted to the target app PID, not to the global foreground app.
-- There is no coordinate-click fallback.
-- MFA and all post-password prompts remain manual.
-- Outlook and Teams share one credential set but are tracked as separate login
-  targets; either app may be satisfied automatically by the other's refreshed
-  Microsoft session.
-- If Microsoft returns “Sorry, your sign-in timed out. Please sign in again,”
-  the watcher retries that password page once, then stops if it repeats.
-- The password is plaintext in `.env`; the file is gitignored but not encrypted
-  at rest.
