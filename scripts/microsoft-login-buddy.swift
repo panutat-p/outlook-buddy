@@ -13,8 +13,8 @@
 
  Requires Accessibility permission for the launching terminal/binary.
  Credentials are loaded from project-root .env:
-   MICROSOFT_EMAIL (fallback: CORPORATE_EMAIL)
-   MICROSOFT_PASSWORD (fallback: CORPORATE_PASSWORD)
+   MICROSOFT_EMAIL
+   MICROSOFT_PASSWORD
  */
 
 import AppKit
@@ -509,39 +509,30 @@ private func parseDotEnv() -> (values: [String: String], path: String?) {
     return (values, url.path)
 }
 
-private func credentialValue(_ names: [String], env: [String: String]) -> String {
-    for name in names {
-        if let value = ProcessInfo.processInfo.environment[name], !value.isEmpty {
-            return value
-        }
-        if let value = env[name], !value.isEmpty { return value }
+private func credentialValue(_ name: String, env: [String: String]) -> String {
+    if let value = ProcessInfo.processInfo.environment[name], !value.isEmpty {
+        return value
     }
-    return ""
+    return env[name] ?? ""
 }
 
 private func loadCredentials() -> Credentials {
     let loaded = parseDotEnv()
     if let path = loaded.path { log("loaded credentials from \(path)") }
     return Credentials(
-        email: credentialValue(
-            ["MICROSOFT_EMAIL", "CORPORATE_EMAIL"],
-            env: loaded.values
-        ),
-        password: credentialValue(
-            ["MICROSOFT_PASSWORD", "CORPORATE_PASSWORD"],
-            env: loaded.values
-        )
+        email: credentialValue("MICROSOFT_EMAIL", env: loaded.values),
+        password: credentialValue("MICROSOFT_PASSWORD", env: loaded.values)
     )
 }
 
 private func validate(_ credentials: Credentials) -> Bool {
     var valid = true
     if credentials.email.isEmpty || !credentials.email.contains("@") {
-        log("MICROSOFT_EMAIL is empty or invalid (CORPORATE_EMAIL is accepted as fallback)")
+        log("MICROSOFT_EMAIL is empty or invalid")
         valid = false
     }
     if credentials.password.isEmpty {
-        log("MICROSOFT_PASSWORD is empty (CORPORATE_PASSWORD is accepted as fallback)")
+        log("MICROSOFT_PASSWORD is empty")
         valid = false
     }
     return valid

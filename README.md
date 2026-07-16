@@ -28,9 +28,6 @@ window remains, the same credentials are submitted there next.
    MICROSOFT_PASSWORD=your-password
    ```
 
-   `CORPORATE_EMAIL` and `CORPORATE_PASSWORD` are also accepted as fallback
-   variable names.
-
    To load credentials from a different file:
 
    ```bash
