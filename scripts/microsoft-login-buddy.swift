@@ -453,17 +453,6 @@ private struct Credentials {
 
 private func findDotEnvURL() -> URL? {
     let fileManager = FileManager.default
-    if let explicitPath = ProcessInfo.processInfo.environment["OUTLOOK_BUDDY_ENV"],
-       !explicitPath.isEmpty {
-        let expanded = NSString(string: explicitPath).expandingTildeInPath
-        let explicitURL = URL(fileURLWithPath: expanded).standardizedFileURL
-        if fileManager.isReadableFile(atPath: explicitURL.path) {
-            return explicitURL
-        }
-        log("OUTLOOK_BUDDY_ENV is not readable: \(explicitURL.path)")
-        return nil
-    }
-
     let cwd = URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
     let argv0 = URL(fileURLWithPath: CommandLine.arguments[0]).standardizedFileURL
     let scriptDirectory = argv0.deletingLastPathComponent()
