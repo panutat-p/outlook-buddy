@@ -1,64 +1,51 @@
 # Outlook Buddy
 
-Native macOS menu-bar watcher that fills Microsoft sign-in pages shown by:
+macOS menu-bar watcher that signs in Microsoft Outlook and Teams with one
+Microsoft 365 account. MFA and other verification prompts remain manual.
 
-- Microsoft Outlook (`com.microsoft.Outlook`)
-- Microsoft Teams (`com.microsoft.teams2`)
-
-It fills the Microsoft 365 email and password, then stops. MFA, number matching,
-CAPTCHA, consent, and device-management prompts always remain manual.
-
-When both apps expire together, Outlook is handled first. The watcher waits for
-its login/MFA flow to finish and gives Microsoft shared SSO a short propagation
-window. If that closes Teams' login, Teams is skipped; if Teams' dedicated login
-window remains, the same credentials are submitted there next.
+When both sessions expire, Outlook is handled first. Teams is handled only if
+Microsoft's shared sign-in does not authenticate it automatically.
 
 ## Setup
 
-1. Create `.env` in this project:
+1. Create `.env`:
 
    ```bash
    cp .env.example .env
    ```
 
-   Set:
+2. Add your credentials:
 
    ```dotenv
    MICROSOFT_EMAIL=you@example.com
    MICROSOFT_PASSWORD=your-password
    ```
 
-   To load credentials from a different file:
-
-   ```bash
-   OUTLOOK_BUDDY_ENV=~/.config/outlook-buddy.env \
-     ./scripts/microsoft-login-buddy.swift
-   ```
-
-2. Grant Accessibility to the terminal that launches the script:
+3. Grant Accessibility to your terminal:
 
    System Settings → Privacy & Security → Accessibility
 
-3. Start the watcher:
+4. Start the watcher:
 
    ```bash
    ./scripts/microsoft-login-buddy.swift
    ```
 
-The menu-bar moon means idle; the yellow bolt means an active sign-in sequence.
-The observed Microsoft session is typically about six hours. The watcher sleeps
-between prompts and wakes on Outlook/Teams window events, with a low-frequency
-safety check; it does not continuously scan the UI.
+The moon menu-bar icon means idle; the yellow bolt means signing in. The watcher
+sleeps between the roughly six-hour login sessions.
 
-## Inspect the open login window
-
-Run this from a terminal that already has Accessibility permission:
+## Commands
 
 ```bash
-./scripts/microsoft-login-buddy.swift inspect
-./scripts/microsoft-login-buddy.swift dump
+./scripts/microsoft-login-buddy.swift          # watch continuously
+./scripts/microsoft-login-buddy.swift once     # handle visible login windows
+./scripts/microsoft-login-buddy.swift inspect  # show detected login pages
+./scripts/microsoft-login-buddy.swift dump     # redacted Accessibility dump
 ```
 
-`inspect` reports only which app and page type were recognized. `dump` prints
-only dedicated Microsoft login surfaces. Both are read-only; email addresses and
-editable values are redacted, and secure-field values are never read.
+Use another credential file with:
+
+```bash
+OUTLOOK_BUDDY_ENV=~/.config/outlook-buddy.env \
+  ./scripts/microsoft-login-buddy.swift
+```
