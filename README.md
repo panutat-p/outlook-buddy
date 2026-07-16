@@ -28,13 +28,13 @@ window remains, the same credentials are submitted there next.
    MICROSOFT_PASSWORD=your-password
    ```
 
-   `CORPORATE_EMAIL` and `CORPORATE_PASSWORD` are accepted as fallback names so
-   the same values used by `skope-buddy` can be reused.
+   `CORPORATE_EMAIL` and `CORPORATE_PASSWORD` are also accepted as fallback
+   variable names.
 
-   To reuse that file directly without copying the password:
+   To load credentials from a different file:
 
    ```bash
-   OUTLOOK_BUDDY_ENV=~/app/skope-buddy/.env \
+   OUTLOOK_BUDDY_ENV=~/.config/outlook-buddy.env \
      ./scripts/microsoft-login-buddy.swift
    ```
 
@@ -79,5 +79,5 @@ editable values are redacted, and secure-field values are never read.
   Microsoft session.
 - If Microsoft returns “Sorry, your sign-in timed out. Please sign in again,”
   the watcher retries that password page once, then stops if it repeats.
-- The password is plaintext in `.env`, matching `skope-buddy`; the file is
-  gitignored but not encrypted at rest.
+- The password is plaintext in `.env`; the file is gitignored but not encrypted
+  at rest.
