@@ -368,10 +368,33 @@ private func postKey(
     }
 }
 
+/// Select the field's current contents via AX so a following insert replaces
+/// them. Returns false when the webview doesn't expose a writable range —
+/// caller falls back to Cmd+A.
+private func selectAllText(in field: AXUIElement) -> Bool {
+    let current = axString(field, kAXValueAttribute as String)
+    var range = CFRange(location: 0, length: (current as NSString).length)
+    guard let axRange = AXValueCreate(.cfRange, &range) else { return false }
+    return AXUIElementSetAttributeValue(
+        field, kAXSelectedTextRangeAttribute as CFString, axRange
+    ) == .success
+}
+
+/// `CGEventKeyboardSetUnicodeString` accepts at most 20 UTF-16 units per event.
+private let unicodeEventLimit = 20
+
+/// Insert `text` as unicode keyboard events targeted at `pid` — whole string
+/// per event, no per-character delay, clipboard untouched.
+///
+/// Unlike an AXValue write, this still fires the webview's input JS so Next /
+/// Sign in can enable. Unlike Cmd+V, it never overwrites the user's pasteboard.
 private func typeText(_ text: String, pid: pid_t) {
     let source = CGEventSource(stateID: .hidSystemState)
-    for scalar in text.unicodeScalars {
-        var characters = [UniChar](String(scalar).utf16)
+    let utf16 = Array(text.utf16)
+    var offset = 0
+    while offset < utf16.count {
+        let count = min(unicodeEventLimit, utf16.count - offset)
+        var characters = Array(utf16[offset..<(offset + count)])
         let down = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true)
         let up = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false)
         down?.keyboardSetUnicodeString(
@@ -384,7 +407,7 @@ private func typeText(_ text: String, pid: pid_t) {
         )
         down?.postToPid(pid)
         up?.postToPid(pid)
-        Thread.sleep(forTimeInterval: 0.012)
+        offset += count
     }
 }
 
@@ -413,9 +436,12 @@ private func fill(
         log("\(context.target.name): focus changed before typing; aborting")
         return false
     }
-    postKey(pid: context.app.processIdentifier, keyCode: 0, flags: .maskCommand)
-    Thread.sleep(forTimeInterval: 0.05)
-    typeText(value, pid: context.app.processIdentifier)
+    let pid = context.app.processIdentifier
+    if !selectAllText(in: field) {
+        postKey(pid: pid, keyCode: 0, flags: .maskCommand) // Cmd+A (virtual key 0 = 'a')
+        Thread.sleep(forTimeInterval: 0.05)
+    }
+    typeText(value, pid: pid)
     log("\(context.target.name): filled \(description)")
     return true
 }
