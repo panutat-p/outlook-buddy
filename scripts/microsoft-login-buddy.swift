@@ -368,16 +368,56 @@ private func postKey(
     }
 }
 
-/// Select the field's current contents via AX so a following insert replaces
-/// them. Returns false when the webview doesn't expose a writable range —
-/// caller falls back to Cmd+A.
-private func selectAllText(in field: AXUIElement) -> Bool {
-    let current = axString(field, kAXValueAttribute as String)
-    var range = CFRange(location: 0, length: (current as NSString).length)
-    guard let axRange = AXValueCreate(.cfRange, &range) else { return false }
-    return AXUIElementSetAttributeValue(
-        field, kAXSelectedTextRangeAttribute as CFString, axRange
-    ) == .success
+private func elementFrame(_ element: AXUIElement) -> CGRect? {
+    guard let positionValue = axValue(element, kAXPositionAttribute as String),
+          let sizeValue = axValue(element, kAXSizeAttribute as String) else {
+        return nil
+    }
+    var position = CGPoint.zero
+    var size = CGSize.zero
+    guard AXValueGetValue(positionValue as! AXValue, .cgPoint, &position),
+          AXValueGetValue(sizeValue as! AXValue, .cgSize, &size) else {
+        return nil
+    }
+    return CGRect(origin: position, size: size)
+}
+
+private func click(at point: CGPoint) {
+    let source = CGEventSource(stateID: .hidSystemState)
+    if let down = CGEvent(
+        mouseEventSource: source,
+        mouseType: .leftMouseDown,
+        mouseCursorPosition: point,
+        mouseButton: .left
+    ) {
+        down.post(tap: .cghidEventTap)
+    }
+    Thread.sleep(forTimeInterval: 0.05)
+    if let up = CGEvent(
+        mouseEventSource: source,
+        mouseType: .leftMouseUp,
+        mouseCursorPosition: point,
+        mouseButton: .left
+    ) {
+        up.post(tap: .cghidEventTap)
+    }
+}
+
+/// Click the webview field so it has real keyboard focus.
+///
+/// `AXFocused = true` is not enough in Outlook: keys posted to the process then
+/// land in the mail search box (a full-string fill opened
+/// `Searching "<email>"` and Sign in was never pressed).
+private func clickField(_ field: AXUIElement) {
+    if AXUIElementPerformAction(field, kAXPressAction as CFString) == .success {
+        Thread.sleep(forTimeInterval: 0.12)
+        return
+    }
+    guard let frame = elementFrame(field), !frame.isNull, frame.width > 1, frame.height > 1 else {
+        return
+    }
+    click(at: CGPoint(x: frame.midX, y: frame.midY))
+    Thread.sleep(forTimeInterval: 0.12)
 }
 
 /// `CGEventKeyboardSetUnicodeString` accepts at most 20 UTF-16 units per event.
@@ -421,6 +461,7 @@ private func fill(
         log("\(context.target.name): could not make target app frontmost; refusing to type")
         return false
     }
+    clickField(field)
     let result = AXUIElementSetAttributeValue(
         field,
         kAXFocusedAttribute as CFString,
@@ -437,13 +478,26 @@ private func fill(
         return false
     }
     let pid = context.app.processIdentifier
-    if !selectAllText(in: field) {
-        postKey(pid: pid, keyCode: 0, flags: .maskCommand) // Cmd+A (virtual key 0 = 'a')
-        Thread.sleep(forTimeInterval: 0.05)
-    }
+    // Cmd+A after a real click, so select-all hits the webview — not Outlook search.
+    postKey(pid: pid, keyCode: 0, flags: .maskCommand) // Cmd+A (virtual key 0 = 'a')
+    Thread.sleep(forTimeInterval: 0.05)
     typeText(value, pid: pid)
+    Thread.sleep(forTimeInterval: 0.3)
+    _ = focus(context)
     log("\(context.target.name): filled \(description)")
     return true
+}
+
+private func applicationOwnsFocus(_ app: NSRunningApplication) -> Bool {
+    NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier
+}
+
+private func primarySubmitButton(in window: AXUIElement, requireEnabled: Bool) -> AXUIElement? {
+    findElement(window) { element, role in
+        guard role == "AXButton" else { return false }
+        if requireEnabled && !axBool(element, kAXEnabledAttribute as String) { return false }
+        return normalized(axString(element, "AXDOMIdentifier")) == "idsibutton9"
+    }
 }
 
 private func pressFreshButton(
@@ -451,23 +505,31 @@ private func pressFreshButton(
     terms: [String],
     description: String
 ) -> Bool {
-    for _ in 0..<10 {
-        guard NSWorkspace.shared.frontmostApplication?.processIdentifier
-                == context.app.processIdentifier else {
+    _ = focus(context)
+    let pid = context.app.processIdentifier
+    for _ in 0..<16 {
+        guard applicationOwnsFocus(context.app) else {
             log("\(context.target.name): focus changed before \(description); aborting")
             return false
         }
-        if let fresh = button(in: context.window, terms: terms, requireEnabled: true) {
+        let window = matchingLoginWindow(for: context) ?? context.window
+        let fresh = primarySubmitButton(in: window, requireEnabled: true)
+            ?? button(in: window, terms: terms, requireEnabled: true)
+        if let fresh {
             let result = AXUIElementPerformAction(fresh, kAXPressAction as CFString)
             if result == .success {
                 log("\(context.target.name): pressed \(description)")
                 return true
             }
+            log("\(context.target.name): AXPress \(description) failed; submitting with Return")
+            postKey(pid: pid, keyCode: 36)
+            return true
         }
-        Thread.sleep(forTimeInterval: 0.3)
+        Thread.sleep(forTimeInterval: 0.35)
     }
-    log("\(context.target.name): \(description) was not available; no coordinate fallback used")
-    return false
+    log("\(context.target.name): \(description) was not enabled; submitting with Return")
+    postKey(pid: pid, keyCode: 36)
+    return true
 }
 
 // MARK: - Credentials
