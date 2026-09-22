@@ -1,10 +1,11 @@
 # Outlook Buddy
 
-macOS menu-bar watcher that signs in Microsoft Outlook and Teams with one
-Microsoft 365 account. MFA and other verification prompts remain manual.
+macOS menu-bar watcher that signs in Microsoft Outlook, Teams, and Copilot
+with one Microsoft 365 account. MFA and other verification prompts remain manual.
 
-When both sessions expire, Outlook is handled first. Teams is handled only if
-Microsoft's shared sign-in does not authenticate it automatically.
+When more than one session has expired, Outlook is handled first, then Teams,
+then Copilot. Each later app is handled only if Microsoft's shared sign-in does
+not authenticate it automatically.
 
 ## Setup
 

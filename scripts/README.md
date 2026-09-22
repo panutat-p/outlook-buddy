@@ -24,6 +24,8 @@ After password submission it enters a cooldown and performs no MFA actions.
 The known Microsoft “sign-in timed out” response is retried once within the
 active sequence; a second timeout fails closed.
 
-If Outlook and Teams both have expired sessions, Outlook is handled first. The
-script waits for that login window to close, allows shared SSO to propagate, and
-then handles Teams only if its dedicated login window is still present.
+If Outlook, Teams, and Copilot have expired sessions, Outlook is handled first,
+then Teams, then Copilot. The script waits for each login window to close,
+allows shared SSO to propagate, and handles the next app only if its dedicated
+login window is still present. Copilot's re-auth prompt is the main Copilot
+window ("Enter password" / Sign in), using the same Microsoft login page.
