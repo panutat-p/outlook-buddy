@@ -2,8 +2,9 @@
 /**
  Outlook Buddy
 
- Watches Microsoft Outlook and Microsoft Teams for Microsoft identity sign-in
- pages. It fills email, then password, and stops before MFA or any later prompt.
+ Watches Microsoft Outlook, Microsoft Teams, and Microsoft 365 Copilot for
+ Microsoft identity sign-in pages. It fills email, then password, and stops
+ before MFA or any later prompt.
 
  Usage:
    ./scripts/microsoft-login-buddy.swift
@@ -32,6 +33,7 @@ private struct TargetApp: Hashable {
 private let targetApps = [
     TargetApp(name: "Microsoft Outlook", bundleID: "com.microsoft.Outlook"),
     TargetApp(name: "Microsoft Teams", bundleID: "com.microsoft.teams2"),
+    TargetApp(name: "Copilot", bundleID: "com.microsoft.m365copilot"),
 ]
 
 private let idleSafetyPollSeconds: TimeInterval = 60
@@ -764,7 +766,7 @@ private func runOneSequence(credentials: Credentials) -> SequenceResult {
                 submittedPassword = true
                 sawPage = true
                 completedPIDs.insert(context.app.processIdentifier)
-                log("\(context.target.name): sign-in completed; checking whether the other Microsoft app still needs authentication")
+                log("\(context.target.name): sign-in completed; checking whether another Microsoft app still needs authentication")
                 Thread.sleep(forTimeInterval: sharedSSOPropagationSeconds)
                 transitionDeadline = Date().addingTimeInterval(pageTransitionTimeout)
             case .timedOut:
@@ -792,7 +794,7 @@ private func runOneSequence(credentials: Credentials) -> SequenceResult {
 
 private func watch(credentials: Credentials) -> Never {
     let wake = MicrosoftWakeSource.shared
-    log("watching Outlook and Teams sign-in windows — Ctrl+C or Quit to stop")
+    log("watching Outlook, Teams, and Copilot sign-in windows — Ctrl+C or Quit to stop")
 
     while true {
         let result = runOneSequence(credentials: credentials)
@@ -808,7 +810,7 @@ private func watch(credentials: Credentials) -> Never {
 
         let wakeResult = wake.wait(timeout: idleSafetyPollSeconds) {
             StatusItem.shared.set(.idle)
-            log("idle — waiting for Outlook or Teams login UI")
+            log("idle — waiting for Outlook, Teams, or Copilot login UI")
         }
         guard wakeResult.fromEvent else { continue }
 
@@ -875,7 +877,7 @@ private final class MicrosoftWakeSource: NSObject {
 
         attachObservers()
         if !runningTargetApps().isEmpty { poke() }
-        log("wake source started for Outlook and Teams")
+        log("wake source started for Outlook, Teams, and Copilot")
     }
 
     func wait(
@@ -1140,7 +1142,7 @@ private func dumpElement(
 private func dumpTargets() {
     let running = runningTargetApps()
     if running.isEmpty {
-        print("Outlook and Teams are not running.")
+        print("Outlook, Teams, and Copilot are not running.")
         return
     }
     for (target, app) in running {
