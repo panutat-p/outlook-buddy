@@ -211,16 +211,57 @@ private func windows(for app: NSRunningApplication) -> [AXUIElement] {
     return result
 }
 
+private func applicationIsFrontmost(_ app: NSRunningApplication) -> Bool {
+    NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier
+}
+
+/// Bring a login window forward even when it is buried under other apps.
+///
+/// On macOS 14 and later, `NSRunningApplication.activate()` does not take
+/// focus from the front app, so a Teams sign-in window that is behind never
+/// becomes the typing target. Raising that window and then setting the app
+/// frontmost through Accessibility does.
 private func focus(_ context: AppContext) -> Bool {
-    context.app.activate()
-    AXUIElementSetAttributeValue(
-        context.window,
-        kAXMainAttribute as CFString,
-        kCFBooleanTrue
-    )
-    AXUIElementPerformAction(context.window, kAXRaiseAction as CFString)
-    Thread.sleep(forTimeInterval: 0.35)
-    return NSWorkspace.shared.frontmostApplication?.processIdentifier == context.app.processIdentifier
+    let appElement = AXUIElementCreateApplication(context.app.processIdentifier)
+    if !applicationIsFrontmost(context.app) {
+        log("\(context.target.name): login window is behind; bringing it forward")
+    }
+
+    let deadline = Date().addingTimeInterval(1.5)
+    repeat {
+        if context.app.isHidden {
+            _ = context.app.unhide()
+        }
+        if axBool(context.window, kAXMinimizedAttribute as String) {
+            AXUIElementSetAttributeValue(
+                context.window,
+                kAXMinimizedAttribute as CFString,
+                kCFBooleanFalse
+            )
+        }
+        // Raise the login window before making the app frontmost. Setting
+        // frontmost alone leaves the current app in front.
+        AXUIElementPerformAction(context.window, kAXRaiseAction as CFString)
+        AXUIElementSetAttributeValue(
+            context.window,
+            kAXMainAttribute as CFString,
+            kCFBooleanTrue
+        )
+        AXUIElementSetAttributeValue(
+            context.window,
+            kAXFocusedAttribute as CFString,
+            kCFBooleanTrue
+        )
+        AXUIElementSetAttributeValue(
+            appElement,
+            kAXFrontmostAttribute as CFString,
+            kCFBooleanTrue
+        )
+        Thread.sleep(forTimeInterval: 0.2)
+        if applicationIsFrontmost(context.app) { return true }
+    } while Date() < deadline
+
+    return false
 }
 
 // MARK: - Microsoft login page classification
@@ -491,7 +532,7 @@ private func fill(
 }
 
 private func applicationOwnsFocus(_ app: NSRunningApplication) -> Bool {
-    NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier
+    applicationIsFrontmost(app)
 }
 
 private func primarySubmitButton(in window: AXUIElement, requireEnabled: Bool) -> AXUIElement? {
